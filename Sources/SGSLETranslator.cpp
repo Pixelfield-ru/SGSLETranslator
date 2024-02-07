@@ -160,6 +160,8 @@ std::string SGCore::SGSLETranslator::sgslePreProcessor(const std::string& path, 
         std::vector<std::string> words;
         SGUtils::Utils::splitString(line, ' ', words);
         
+        // test
+        
         /*if(words.size() >= 2 && words[0] == "#sg_pragma" && words[1] == "once" && m_includedFiles.contains(path))
         {
             return outputStr;
