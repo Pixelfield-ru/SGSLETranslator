@@ -7,4 +7,6 @@ set(CMAKE_CXX_STANDARD 23)
 
 add_executable(SGSLETranslator ${SGSLE_TRANSLATOR_SOURCES}
         Sources/SGSLETranslator.h
-        Sources/SGSLETranslator.cpp)
+        Sources/SGSLETranslator.cpp
+        Sources/SGSLEFunction.h
+        Sources/SGSLEInfo.h)

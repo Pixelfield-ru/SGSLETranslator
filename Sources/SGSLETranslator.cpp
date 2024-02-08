@@ -18,8 +18,7 @@ std::string SGCore::SGSLETranslator::processCode(const std::string& path, const 
     {
         translator.m_config.m_outputDebugDirectoryPath += "/" + replacedPath;
     }
-
-    translator.m_includedFiles.insert(path);
+    
     std::string correctedCode = sgsleCodeCorrector(code);
     std::string preProcessedCode = sgslePreprocessor(path, correctedCode);
     std::string finalCode = sgsleMainProcessor(preProcessedCode);
@@ -66,8 +65,6 @@ std::string SGCore::SGSLETranslator::sgsleCodeCorrector(const std::string& code)
     
     CommentMode commentMode = CommentMode::NO_COMMENT;
     
-    int currentIndent = 0;
-    
     // new line if met symbol '{' or '}'
     // new line by the EOL character if first character of string '#'
     // else collecting characters to line while not met ';'
@@ -113,7 +110,7 @@ std::string SGCore::SGSLETranslator::sgsleCodeCorrector(const std::string& code)
                 currentCharOfStrIdxWOSpaces = 0;
                 preProcDirDeclared = false;
                 currentLine += c;
-                outputStr += std::string(currentIndent, '\t') + SGUtils::Utils::reduce(currentLine);
+                outputStr += SGUtils::Utils::reduce(currentLine);
                 currentLine = "";
                 
                 continue;
@@ -124,7 +121,7 @@ std::string SGCore::SGSLETranslator::sgsleCodeCorrector(const std::string& code)
                 currentCharOfStrIdxWOSpaces = 0;
                 currentLine += c;
                 currentLine += '\n';
-                outputStr += std::string(currentIndent, '\t') + SGUtils::Utils::reduce(currentLine);
+                outputStr += SGUtils::Utils::reduce(currentLine);
                 currentLine = "";
                 
                 continue;
@@ -135,17 +132,8 @@ std::string SGCore::SGSLETranslator::sgsleCodeCorrector(const std::string& code)
                 currentLine += c;
                 currentLine += '\n';
                 
-                outputStr += std::string(c == '}' ? currentIndent - 1 : currentIndent, '\t') + SGUtils::Utils::reduce(currentLine);
+                outputStr += SGUtils::Utils::reduce(currentLine);
                 currentLine = "";
-                
-                if(c == '{')
-                {
-                    ++currentIndent;
-                }
-                else
-                {
-                    --currentIndent;
-                }
                 
                 currentCharOfStrIdxWOSpaces = 0;
                 
@@ -186,12 +174,14 @@ std::string SGCore::SGSLETranslator::sgslePreProcessor(const std::string& path, 
         std::vector<std::string> words;
         SGUtils::Utils::splitString(line, ' ', words);
         
-        // test
+        bool append = true;
         
-        /*if(words.size() >= 2 && words[0] == "#sg_pragma" && words[1] == "once" && m_includedFiles.contains(path))
+        if(words.size() >= 2 && words[0] == "#sg_pragma" && words[1] == "once")
         {
-            return outputStr;
-        }*/
+            m_includedFiles.insert(path);
+            
+            append = false;
+        }
         
         if(!words.empty() && words[0] == "#sg_include")
         {
@@ -209,9 +199,11 @@ std::string SGCore::SGSLETranslator::sgslePreProcessor(const std::string& path, 
                 outputStr += processCode(finalIncludedFilePath, SGUtils::FileUtils::readFile(finalIncludedFilePath),
                                          *this, false);
             }
+            
+            append = false;
         }
         
-        outputStr += line + "\n";
+        if(append) outputStr += line + "\n";
     }
     
     return outputStr;
@@ -224,5 +216,18 @@ std::string SGCore::SGSLETranslator::sgslePreprocessor(const std::string& path, 
 
 std::string SGCore::SGSLETranslator::sgsleMainProcessor(const std::string& code)
 {
-    return code;
+    std::stringstream codeStream(code);
+    
+    std::string line;
+    
+    std::string outputStr;
+    
+    while(std::getline(codeStream, line))
+    {
+        bool append = true;
+        
+        if(append) outputStr += line + "\n";
+    }
+    
+    return outputStr;
 }

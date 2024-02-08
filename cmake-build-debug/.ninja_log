@@ -1,12 +1,7 @@
 # ninja log v5
-546	586	1707343714716202671	SGSLETranslator	2edea65d4bd57f6b
-1	546	1707343714676202943	CMakeFiles/SGSLETranslator.dir/Sources/SGSLETranslator.cpp.o	ca3a7e7b9f376ed3
-0	16	1707431504187298918	build.ninja	240e8627d31d7706
-0	398	1707341542418910174	CMakeFiles/SGSLETranslator.dir/Sources/Utils.cpp.o	4552444ce5818a19
-0	319	1707332361755595122	CMakeFiles/SGSLETranslator.dir/Sources/FileUtils.cpp.o	262cf2f5ccfc0b70
-1	344	1707341439847626462	CMakeFiles/SGSLETranslator.dir/Sources/main.cpp.o	c050aa617094376b
+738	782	1707433305087338536	SGSLETranslator	2edea65d4bd57f6b
+0	738	1707433305043339076	CMakeFiles/SGSLETranslator.dir/Sources/SGSLETranslator.cpp.o	ca3a7e7b9f376ed3
+0	16	1707433728863175740	build.ninja	240e8627d31d7706
 0	427	1707431506235295828	CMakeFiles/SGSLETranslator.dir/Sources/Utils.cpp.o	4552444ce5818a19
-0	491	1707431506299295732	CMakeFiles/SGSLETranslator.dir/Sources/main.cpp.o	c050aa617094376b
 0	584	1707431506391295598	CMakeFiles/SGSLETranslator.dir/Sources/FileUtils.cpp.o	262cf2f5ccfc0b70
-0	786	1707431506595295303	CMakeFiles/SGSLETranslator.dir/Sources/SGSLETranslator.cpp.o	ca3a7e7b9f376ed3
-786	831	1707431506639295237	SGSLETranslator	2edea65d4bd57f6b
+0	491	1707431506299295732	CMakeFiles/SGSLETranslator.dir/Sources/main.cpp.o	c050aa617094376b
