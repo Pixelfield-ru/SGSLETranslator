@@ -1,6 +1,7 @@
 #include <iostream>
 #include "SGSLETranslator.h"
 #include "FileUtils.h"
+#include "Utils.h"
 
 int main()
 {

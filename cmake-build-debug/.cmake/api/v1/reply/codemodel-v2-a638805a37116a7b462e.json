@@ -6,10 +6,10 @@
 			[
 				{
 					"build" : ".",
-					"jsonFile" : "directory-.-Debug-f5ebdc15457944623624.json",
+					"jsonFile" : "directory-.-Debug-d0094a50bb2071803777.json",
 					"minimumCMakeVersion" : 
 					{
-						"string" : "3.27"
+						"string" : "3.25"
 					},
 					"projectIndex" : 0,
 					"source" : ".",
@@ -39,7 +39,7 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "SGSLETranslator::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-SGSLETranslator-Debug-1b4b4802d4e2ba20e38f.json",
+					"jsonFile" : "target-SGSLETranslator-Debug-488c6c7dbd21b8fbf52a.json",
 					"name" : "SGSLETranslator",
 					"projectIndex" : 0
 				}
@@ -49,12 +49,12 @@
 	"kind" : "codemodel",
 	"paths" : 
 	{
-		"build" : "/home/ilya/pixelfield/SGSLETranslator/cmake-build-debug",
-		"source" : "/home/ilya/pixelfield/SGSLETranslator"
+		"build" : "F:/Pixelfield/SGSLETranslator/cmake-build-debug",
+		"source" : "F:/Pixelfield/SGSLETranslator"
 	},
 	"version" : 
 	{
 		"major" : 2,
-		"minor" : 6
+		"minor" : 4
 	}
 }

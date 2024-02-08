@@ -2,7 +2,10 @@
 	"artifacts" : 
 	[
 		{
-			"path" : "SGSLETranslator"
+			"path" : "SGSLETranslator.exe"
+		},
+		{
+			"path" : "SGSLETranslator.pdb"
 		}
 	],
 	"backtrace" : 1,
@@ -35,7 +38,10 @@
 			"compileCommandFragments" : 
 			[
 				{
-					"fragment" : "-g -std=gnu++23 -fdiagnostics-color=always"
+					"fragment" : "-g -fdiagnostics-color=always"
+				},
+				{
+					"fragment" : "-std=gnu++23"
 				}
 			],
 			"language" : "CXX",
@@ -51,8 +57,8 @@
 			[
 				0,
 				2,
-				4,
-				6
+				5,
+				7
 			]
 		}
 	],
@@ -68,12 +74,16 @@
 			{
 				"fragment" : "",
 				"role" : "flags"
+			},
+			{
+				"fragment" : "-lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32",
+				"role" : "libraries"
 			}
 		],
 		"language" : "CXX"
 	},
 	"name" : "SGSLETranslator",
-	"nameOnDisk" : "SGSLETranslator",
+	"nameOnDisk" : "SGSLETranslator.exe",
 	"paths" : 
 	{
 		"build" : ".",
@@ -87,8 +97,8 @@
 			[
 				0,
 				2,
-				4,
-				6
+				5,
+				7
 			]
 		},
 		{
@@ -97,7 +107,8 @@
 			[
 				1,
 				3,
-				5
+				4,
+				6
 			]
 		}
 	],
@@ -123,6 +134,11 @@
 		{
 			"backtrace" : 1,
 			"path" : "Sources/SGSLETranslator.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"path" : "Sources/SGSLETranslatorConfiguration.h",
 			"sourceGroupIndex" : 1
 		},
 		{

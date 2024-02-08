@@ -119,6 +119,33 @@ namespace SGUtils
             return result;
         }
 
+        static std::string toString(const std::vector<std::string>& vec) noexcept
+        {
+            std::string str;
+
+            for(auto& s : vec)
+            {
+                str += s;
+            }
+
+            return str;
+        }
+
+        static std::string toString(const std::vector<std::string>::iterator& begin, const std::vector<std::string>::iterator& end) noexcept
+        {
+            std::string str;
+
+            auto it = begin;
+
+            while(it != end)
+            {
+                str += *it;
+                ++it;
+            }
+
+            return str;
+        }
+
         static std::string sourceLocationToString(const std::source_location& location) noexcept
         {
             return "\tFile: " + std::string(location.file_name()) + "\n"

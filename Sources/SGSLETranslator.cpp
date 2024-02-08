@@ -3,17 +3,43 @@
 //
 
 #include <sstream>
+#include <filesystem>
 #include "SGSLETranslator.h"
 #include "Utils.h"
+#include "FileUtils.h"
 
-std::string SGCore::SGSLETranslator::processCode(const std::string& path, const std::string& code)
+std::string SGCore::SGSLETranslator::processCode(const std::string& path, const std::string& code,
+                                                 SGCore::SGSLETranslator& translator, bool isRootShader)
 {
-    m_includedFiles.insert(path);
+    std::string replacedPath = SGUtils::Utils::replaceAll(path, "/", "_");
+    replacedPath = SGUtils::Utils::replaceAll(replacedPath, "\\", "_");
+
+    if(isRootShader)
+    {
+        translator.m_config.m_outputDebugDirectoryPath += "/" + replacedPath;
+    }
+
+    translator.m_includedFiles.insert(path);
     std::string correctedCode = sgsleCodeCorrector(code);
     std::string preProcessedCode = sgslePreprocessor(path, correctedCode);
     std::string finalCode = sgsleMainProcessor(preProcessedCode);
-    
+
+    if(translator.m_config.m_useOutputDebug)
+    {
+        SGUtils::FileUtils::writeToFile(translator.m_config.m_outputDebugDirectoryPath + "/" + replacedPath + ".txt", finalCode, false, true);
+    }
+
     return finalCode;
+}
+
+std::string SGCore::SGSLETranslator::processCode(const std::string& path, const std::string& code, SGSLETranslator& translator)
+{
+    return processCode(path, code, translator, true);
+}
+
+std::string SGCore::SGSLETranslator::processCode(const std::string& path, const std::string& code)
+{
+    return processCode(path, code, *this);
 }
 
 std::string SGCore::SGSLETranslator::sgsleCodeCorrector(const std::string& code)
@@ -165,12 +191,25 @@ std::string SGCore::SGSLETranslator::sgslePreProcessor(const std::string& path, 
         /*if(words.size() >= 2 && words[0] == "#sg_pragma" && words[1] == "once" && m_includedFiles.contains(path))
         {
             return outputStr;
-        }
+        }*/
         
         if(!words.empty() && words[0] == "#sg_include")
         {
-        
-        }*/
+            std::string includedFilePath = SGUtils::Utils::toString(words.begin() + 1, words.end());
+            std::string finalIncludedFilePath = std::filesystem::path(path).parent_path().string() + "/" +
+                    std::string(includedFilePath.begin() + 1, includedFilePath.end() - 1);
+
+            if(finalIncludedFilePath.starts_with("/") || finalIncludedFilePath.starts_with("\\"))
+            {
+                finalIncludedFilePath.erase(finalIncludedFilePath.begin());
+            }
+
+            if(!m_includedFiles.contains(finalIncludedFilePath))
+            {
+                outputStr += processCode(finalIncludedFilePath, SGUtils::FileUtils::readFile(finalIncludedFilePath),
+                                         *this, false);
+            }
+        }
         
         outputStr += line + "\n";
     }

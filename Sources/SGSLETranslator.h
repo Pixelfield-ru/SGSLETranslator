@@ -8,15 +8,21 @@
 #include <string>
 #include <vector>
 #include <set>
+#include "SGSLETranslatorConfiguration.h"
 
 namespace SGCore
 {
     class SGSLETranslator
     {
     public:
+        std::string processCode(const std::string& path, const std::string& code, SGSLETranslator& translator);
         std::string processCode(const std::string& path, const std::string& code);
 
+        SGSLETranslatorConfiguration m_config;
+
     private:
+        std::string processCode(const std::string& path, const std::string& code, SGSLETranslator& translator, bool isRootShader);
+
         std::string sgsleCodeCorrector(const std::string& code);
         std::string sgslePreprocessor(const std::string& path, const std::string& code);
         std::string sgslePreProcessor(const std::string& path, const std::string& code, SGSLETranslator& translator);

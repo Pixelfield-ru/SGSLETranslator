@@ -1,0 +1,3 @@
+C:\Users\Ilya\AppData\Local\Programs\CLion\bin\cmake\win\x64\bin\cmake.exe -E rm -f CMakeFiles\SGSLETranslator.dir/objects.a
+C:\Users\Ilya\AppData\Local\Programs\CLion\bin\mingw\bin\ar.exe qc CMakeFiles\SGSLETranslator.dir/objects.a @CMakeFiles\SGSLETranslator.dir\objects1
+C:\Users\Ilya\AppData\Local\Programs\CLion\bin\mingw\bin\g++.exe -g -Wl,--whole-archive CMakeFiles\SGSLETranslator.dir/objects.a -Wl,--no-whole-archive -o SGSLETranslator.exe -Wl,--out-implib,libSGSLETranslator.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\SGSLETranslator.dir\linkLibs.rsp
