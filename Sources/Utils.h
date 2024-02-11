@@ -59,7 +59,7 @@ namespace SGUtils
                 words.push_back(word);
             }
         }
-
+        
         static std::string replaceAll(const std::string& str, const std::string& from, const std::string& to) noexcept
         {
             std::string resString = str;

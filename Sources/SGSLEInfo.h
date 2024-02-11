@@ -6,14 +6,15 @@
 #define SGSLETRANSLATOR_SGSLEINFO_H
 
 #include <vector>
-#include "SGSLEFunction.h"
 
-namespace SGCore::SGSLEInfo
+namespace SGCore
 {
-    // by default build-in functions
-    std::vector<SGSLEFunction> n_functions {
-            { "SGGetTexturesFromMaterial", true },
-            { "SGGetTextures", true }
+    struct SGSLEInfo
+    {
+        static void init() noexcept
+        {
+
+        }
     };
 }
 

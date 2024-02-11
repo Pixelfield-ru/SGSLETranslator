@@ -1,0 +1,7 @@
+#sg_pragma once
+
+[[sgsl_struct_decl]] struct SGSampler2D;
+[[sgsl_struct_decl]] struct SGSamplerCube extends SGSampler2D;
+
+[[sgsl_func_decl]] SGSampler2D[sizeof(args)] SGGetTextures(string...);
+[[sgsl_func_decl]] SGSampler2D... SGGetTexturesFromMaterial(string);

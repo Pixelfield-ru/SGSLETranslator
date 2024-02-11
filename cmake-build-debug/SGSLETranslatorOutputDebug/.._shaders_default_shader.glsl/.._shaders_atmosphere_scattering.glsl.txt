@@ -1,3 +1,6 @@
+// SubPass: GeometryPgass
+// SubShader: Vertex
+
 #define PI 3.141592
 #define iSteps 16
 #define jSteps 8
@@ -47,3 +50,31 @@ iTime += iStepSize;
 }
 return iSun * (pRlh * kRlh * totalRlh + pMie * kMie * totalMie);
 }
+
+struct ILight {
+vec3 a;
+vec3 b;
+}
+;
+struct IAnotherLight {
+// base struct 'ILight' variables: 
+vec3 a;
+vec3 b;
+
+vec3 e;
+vec3 f;
+}
+struct DirLight {
+// base struct 'IAnotherLight' variables: 
+vec3 a;
+vec3 b;
+vec3 e;
+vec3 f;
+
+// base struct 'ILight' variables: 
+
+vec4 c;
+vec4 d;
+}
+;
+

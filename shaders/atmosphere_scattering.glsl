@@ -97,3 +97,21 @@ vec3 atmosphere(vec3 r, vec3 ro,
     // Calculate and return the final color.
     return iSun * (pRlh * kRlh * totalRlh + pMie * kMie * totalMie);
 }
+
+struct ILight
+{
+    vec3 a;
+    vec3 b;
+};
+
+struct IAnotherLight extends ILight
+{
+    vec3 e;
+    vec3 f;
+}
+
+struct DirLight extends IAnotherLight extends ILight
+{
+    vec4 c;
+    vec4 d;
+};

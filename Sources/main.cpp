@@ -11,7 +11,7 @@ int main()
     
     std::string path = "../shaders/default_shader.glsl";
     
-    std::string proceedCode = translator.processCode(path, SGUtils::FileUtils::readFile(path));
+    std::string proceedCode = translator.processCode(path, SGUtils::FileUtils::readFile(path))->getSubShaderCode("GeometryPass", SGCore::SST_VERTEX);
     
     std::cout << proceedCode << std::endl;
     

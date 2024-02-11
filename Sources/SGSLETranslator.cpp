@@ -7,36 +7,41 @@
 #include "SGSLETranslator.h"
 #include "Utils.h"
 #include "FileUtils.h"
+#include "SGSLEInfo.h"
 
-std::string SGCore::SGSLETranslator::processCode(const std::string& path, const std::string& code,
-                                                 SGCore::SGSLETranslator& translator, bool isRootShader)
+std::shared_ptr<SGCore::ShaderAnalyzedFile>
+SGCore::SGSLETranslator::processCode(const std::string& path, const std::string& code,
+                                     SGCore::SGSLETranslator& translator, bool isRootShader)
 {
     std::string replacedPath = SGUtils::Utils::replaceAll(path, "/", "_");
     replacedPath = SGUtils::Utils::replaceAll(replacedPath, "\\", "_");
-
+    
     if(isRootShader)
     {
         translator.m_config.m_outputDebugDirectoryPath += "/" + replacedPath;
     }
     
     std::string correctedCode = sgsleCodeCorrector(code);
-    std::string preProcessedCode = sgslePreprocessor(path, correctedCode);
-    std::string finalCode = sgsleMainProcessor(preProcessedCode);
-
+    std::shared_ptr<ShaderAnalyzedFile> preProcessedCode = sgslePreprocessor(path, correctedCode);
+    std::shared_ptr<ShaderAnalyzedFile> analyzedFile = sgsleMainProcessor(preProcessedCode);
+    
     if(translator.m_config.m_useOutputDebug)
     {
-        SGUtils::FileUtils::writeToFile(translator.m_config.m_outputDebugDirectoryPath + "/" + replacedPath + ".txt", finalCode, false, true);
+        SGUtils::FileUtils::writeToFile(translator.m_config.m_outputDebugDirectoryPath + "/" + replacedPath + ".txt",
+                                        analyzedFile->getAllCode(), false, true);
     }
-
-    return finalCode;
+    
+    return analyzedFile;
 }
 
-std::string SGCore::SGSLETranslator::processCode(const std::string& path, const std::string& code, SGSLETranslator& translator)
+std::shared_ptr<SGCore::ShaderAnalyzedFile>
+SGCore::SGSLETranslator::processCode(const std::string& path, const std::string& code, SGSLETranslator& translator)
 {
     return processCode(path, code, translator, true);
 }
 
-std::string SGCore::SGSLETranslator::processCode(const std::string& path, const std::string& code)
+std::shared_ptr<SGCore::ShaderAnalyzedFile>
+SGCore::SGSLETranslator::processCode(const std::string& path, const std::string& code)
 {
     return processCode(path, code, *this);
 }
@@ -143,8 +148,7 @@ std::string SGCore::SGSLETranslator::sgsleCodeCorrector(const std::string& code)
             if(c != '\n')
             {
                 currentLine += c;
-            }
-            else
+            } else
             {
                 currentLine += ' ';
             }
@@ -161,13 +165,15 @@ std::string SGCore::SGSLETranslator::sgsleCodeCorrector(const std::string& code)
     return outputStr;
 }
 
-std::string SGCore::SGSLETranslator::sgslePreProcessor(const std::string& path, const std::string& code, SGSLETranslator& translator)
+std::shared_ptr<SGCore::ShaderAnalyzedFile>
+SGCore::SGSLETranslator::sgslePreProcessor(const std::string& path, const std::string& code,
+                                           SGSLETranslator& translator)
 {
     std::stringstream codeStream(code);
     
     std::string line;
     
-    std::string outputStr;
+    std::shared_ptr<ShaderAnalyzedFile> analyzedFile = std::make_shared<ShaderAnalyzedFile>();
     
     while(std::getline(codeStream, line))
     {
@@ -187,47 +193,352 @@ std::string SGCore::SGSLETranslator::sgslePreProcessor(const std::string& path, 
         {
             std::string includedFilePath = SGUtils::Utils::toString(words.begin() + 1, words.end());
             std::string finalIncludedFilePath = std::filesystem::path(path).parent_path().string() + "/" +
-                    std::string(includedFilePath.begin() + 1, includedFilePath.end() - 1);
-
+                                                std::string(includedFilePath.begin() + 1, includedFilePath.end() - 1);
+            
             if(finalIncludedFilePath.starts_with("/") || finalIncludedFilePath.starts_with("\\"))
             {
                 finalIncludedFilePath.erase(finalIncludedFilePath.begin());
             }
-
+            
             if(!m_includedFiles.contains(finalIncludedFilePath))
             {
-                outputStr += processCode(finalIncludedFilePath, SGUtils::FileUtils::readFile(finalIncludedFilePath),
-                                         *this, false);
+                analyzedFile->includeFile(
+                        processCode(finalIncludedFilePath, SGUtils::FileUtils::readFile(finalIncludedFilePath),
+                                    *this, false));
             }
             
             append = false;
         }
         
-        if(append) outputStr += line + "\n";
+        std::smatch sgslFuncWithArgsCallRegexMatch;
+        
+        if(std::regex_search(line, sgslFuncWithArgsCallRegexMatch, m_sgslFuncWithArgsCallRegex))
+        {
+            std::smatch blockArgsMatch;
+            
+            std::string blockName = sgslFuncWithArgsCallRegexMatch[1];
+            std::string argsString = sgslFuncWithArgsCallRegexMatch[2];
+            
+            std::vector<std::string> blockArgs;
+            
+            std::sregex_iterator iter(argsString.begin(), argsString.end(), m_funcArgsDividerRegex);
+            
+            while(iter != m_regexIterEnd)
+            {
+                std::smatch match = *iter;
+                blockArgs.push_back(match[0].str());
+                ++iter;
+            }
+            
+            if(blockName == "SGSubPass")
+            {
+                for(const auto& subPassName : blockArgs)
+                {
+                    SGSLESubPass* subPass = &analyzedFile->m_subPasses[subPassName];
+                    subPass->m_name = subPassName;
+                    subPass->m_onBlockEnd = [&translator, &subPass]() {
+                        translator.m_currentSubPasses.erase(
+                                std::remove(translator.m_currentSubPasses.begin(), translator.m_currentSubPasses.end(),
+                                            subPass), translator.m_currentSubPasses.end());
+                    };
+                    translator.m_currentSubPasses.push_back(subPass);
+                }
+                append = false;
+            } else if(blockName == "SGSubShader")
+            {
+                for(const auto& subPass : translator.m_currentSubPasses)
+                {
+                    for(const auto& subShaderName : blockArgs)
+                    {
+                        SGSLESubShaderType shaderType = stringToSGSLESubShaderType(subShaderName);
+                        
+                        SGSLESubShader* subShader = &analyzedFile->addOrGetSubShader(subPass->m_name, shaderType);
+                        
+                        subShader->m_type = shaderType;
+                        subShader->m_onBlockEnd = [&translator, &subShader, &subPass]() {
+                            translator.m_currentSubShaders.erase(std::remove(translator.m_currentSubShaders.begin(),
+                                                                             translator.m_currentSubShaders.end(),
+                                                                             std::make_pair(subPass, subShader)),
+                                                                 translator.m_currentSubShaders.end());
+                        };
+                        
+                        translator.m_currentSubShaders.emplace_back(subPass, subShader);
+                    }
+                }
+                append = false;
+            }
+        }
+        
+        if(line.ends_with("{"))
+        {
+            for(auto* subPass : translator.m_currentSubPasses)
+            {
+                ++subPass->m_openedBracketsCount;
+            }
+            
+            for(auto& subShader : translator.m_currentSubShaders)
+            {
+                ++subShader.second->m_openedBracketsCount;
+            }
+        } else if(line.ends_with("}"))
+        {
+            auto subPassesIt = translator.m_currentSubPasses.begin();
+            while(subPassesIt != translator.m_currentSubPasses.end())
+            {
+                --(*subPassesIt)->m_openedBracketsCount;
+                
+                if((*subPassesIt)->m_openedBracketsCount == 0)
+                {
+                    subPassesIt = translator.m_currentSubPasses.erase(subPassesIt);
+                    append = false;
+                } else
+                {
+                    ++subPassesIt;
+                }
+            }
+            
+            auto subShadersIt = translator.m_currentSubShaders.begin();
+            while(subShadersIt != translator.m_currentSubShaders.end())
+            {
+                --(*subShadersIt).second->m_openedBracketsCount;
+                
+                if((*subShadersIt).second->m_openedBracketsCount == 0)
+                {
+                    subShadersIt = translator.m_currentSubShaders.erase(subShadersIt);
+                    append = false;
+                } else
+                {
+                    ++subShadersIt;
+                }
+            }
+        }
+        
+        if(append)
+        {
+            if(!translator.m_currentSubPasses.empty())
+            {
+                for(auto& subPass : translator.m_currentSubPasses)
+                {
+                    size_t currentSubPassSubShadersCnt = 0;
+                    for(auto& subShaderPair : translator.m_currentSubShaders)
+                    {
+                        if(subShaderPair.first->m_name == subPass->m_name)
+                        {
+                            analyzedFile->addOrGetSubShader(subPass->m_name, subShaderPair.second->m_type).m_code +=
+                                    line + "\n";
+                            ++currentSubPassSubShadersCnt;
+                        }
+                    }
+                    
+                    if(currentSubPassSubShadersCnt == 0)
+                    {
+                        subPass->m_globalCode += line + "\n";
+                    }
+                }
+            } else
+            {
+                analyzedFile->m_globalCode += line + "\n";
+            }
+        }
     }
     
-    return outputStr;
+    return analyzedFile;
 }
 
-std::string SGCore::SGSLETranslator::sgslePreprocessor(const std::string& path, const std::string& code)
+std::shared_ptr<SGCore::ShaderAnalyzedFile>
+SGCore::SGSLETranslator::sgslePreprocessor(const std::string& path, const std::string& code)
 {
     return sgslePreProcessor(path, code, *this);
 }
 
-std::string SGCore::SGSLETranslator::sgsleMainProcessor(const std::string& code)
+std::shared_ptr<SGCore::ShaderAnalyzedFile>
+SGCore::SGSLETranslator::sgsleMainProcessor(const std::shared_ptr<ShaderAnalyzedFile>& analyzedFile)
 {
-    std::stringstream codeStream(code);
+    /*std::stringstream codeStream(code);
     
     std::string line;
     
-    std::string outputStr;
+    std::string outputStr;*/
     
-    while(std::getline(codeStream, line))
+    for(auto& subPass : analyzedFile->m_subPasses)
     {
-        bool append = true;
-        
-        if(append) outputStr += line + "\n";
+        for(auto& subShaderIter : subPass.second.m_subShaders)
+        {
+            SGSLESubShader& subShader = subShaderIter.second;
+            
+            std::stringstream codeStream(subShader.m_code);
+            
+            std::vector<std::string> lines;
+            SGUtils::Utils::splitString(subShader.m_code, '\n', lines);
+            
+            subShader.m_code = "";
+            
+            size_t curLineIdx = 0;
+            for(auto& line : lines)
+            {
+                std::vector<std::string> splittedBySpaceLine;
+                SGUtils::Utils::splitString(line, ' ', splittedBySpaceLine);
+                
+                if(splittedBySpaceLine.size() >= 2)
+                {
+                    if(splittedBySpaceLine[0] == "struct")
+                    {
+                        SGSLEStruct sgsleStruct;
+                        sgsleStruct.m_name = SGUtils::Utils::replaceAll(splittedBySpaceLine[1], "{", "");
+                        
+                        for(size_t i = 2; i < splittedBySpaceLine.size(); i += 2)
+                        {
+                            if(splittedBySpaceLine[i] == "extends")
+                            {
+                                std::string clearBaseName = SGUtils::Utils::replaceAll(splittedBySpaceLine[i + 1], "{",
+                                                                                       "");
+                                
+                                line = SGUtils::Utils::replaceAll(line, "extends " + clearBaseName, "");
+                                line = SGUtils::Utils::reduce(line);
+                                
+                                SGSLEStruct* baseStruct = subShader.tryGetStruct(clearBaseName);
+                                
+                                if(!baseStruct)
+                                {
+                                    // todo: print error that is base struct is not declared
+                                    continue;
+                                }
+                                
+                                sgsleStruct.m_bases.push_back(clearBaseName);
+                                
+                                line += "\n// base struct '" + baseStruct->m_name + "' variables: \n";
+                                for(auto& variable : baseStruct->m_variables)
+                                {
+                                    if(std::find(sgsleStruct.m_variables.begin(), sgsleStruct.m_variables.end(), variable) != sgsleStruct.m_variables.end()) continue;
+                                    sgsleStruct.m_variables.push_back(variable);
+                                    line += variable + '\n';
+                                }
+                            }
+                        }
+                        
+                        for(size_t i = curLineIdx + 1; !lines[i].ends_with("}"); ++i)
+                        {
+                            sgsleStruct.m_variables.push_back(lines[i]);
+                        }
+                        
+                        subShader.m_structs.push_back(sgsleStruct);
+                    }
+                }
+                
+                subShader.m_code += line + '\n';
+                
+                ++curLineIdx;
+            }
+        }
     }
     
-    return outputStr;
+    /*while(std::getline(codeStream, line))
+    {
+        bool append = true;*/
+    
+    /*if(line.starts_with("[[sgsl_struct_decl]]"))
+    {
+        std::vector<std::string> splittedStr;
+        
+        SGUtils::Utils::splitString(line, ' ', splittedStr);
+        
+        SGSLEType sgsleStruct;
+        
+        sgsleStruct.m_name = SGUtils::Utils::replaceFirst(splittedStr[2], ";", "");
+        
+        for(size_t i = 4; i < splittedStr.size(); i += 2)
+        {
+            sgsleStruct.m_bases.push_back(SGUtils::Utils::replaceFirst(splittedStr[i], ";", ""));
+        }
+        
+        SGSLEInfo::getStructs().push_back(sgsleStruct);
+        
+        std::cout << sgsleStruct.toString() << std::endl;
+        
+        continue;
+    }
+    
+    if(line.starts_with("[[sgsl_func_decl]]"))
+    {
+        std::vector<std::string> splittedStr;
+        
+        SGUtils::Utils::splitString(line, ' ', splittedStr);
+        
+        SGSLEFunctionDecl sgsleFunction;
+        
+        std::string declStr = SGUtils::Utils::toString(splittedStr.begin() + 2, splittedStr.end());
+        
+        sgsleFunction.m_returnTypeDecl = SGSLEArgumentDecl { SGUtils::Utils::replaceFirst(splittedStr[1], "...", ""), splittedStr[1].ends_with("...") };
+        
+        static std::smatch assignExprRSideMatch;
+        
+        if(std::regex_search(line, assignExprRSideMatch, s_rSideOfAssignExprRegex))
+        {
+        
+        }
+        
+        SGSLEInfo::getFunctions().push_back(sgsleFunction);
+        
+        std::cout << sgsleFunction.toString() << std::endl;
+        
+        continue;
+    }*/
+    
+    
+    
+    /*std::vector<std::string> declarationExprSplit;
+    SGUtils::Utils::splitString(line,' ', declarationExprSplit);
+    if(declarationExprSplit.size() >= 2)
+    {
+        std::string type = declarationExprSplit[0];
+        std::string varName = declarationExprSplit[1];
+        
+        std::string typeGLSLReplacement = SGSLEInfo::getType(type).m_glslReplacement;
+        if(!typeGLSLReplacement.empty())
+        {
+            std::string glslReplacement = "#define __" + varName + "_COUNT__";
+        }
+    }*/
+    
+    /*std::vector<std::string> assignExprSplit;
+    SGUtils::Utils::splitString(line, '=', assignExprSplit);
+    
+    if(assignExprSplit.size() == 2)
+    {
+        std::vector<std::string> lSideSplitted;
+        std::vector<std::string> rSideSplitted;
+        
+        // splitting left side of assign expr by space char
+        SGUtils::Utils::splitString(assignExprSplit[0], ' ', lSideSplitted);
+        
+        std::string varName;
+        
+        if(lSideSplitted.size() == 2)
+        {
+            varName = lSideSplitted[1];
+        }
+        else if(lSideSplitted.size() == 1)
+        {
+            varName = lSideSplitted[0];
+        }
+        
+        static std::smatch assignExprRSideMatch;
+        
+        if(std::regex_search(line, assignExprRSideMatch, s_rSideOfAssignExprRegex))
+        {
+            std::string funcName = assignExprRSideMatch[1];
+            
+            std::cout << "func : " << funcName << std::endl;
+            
+            if(funcName == "SGGetTexturesFromMaterial")
+            {
+            
+            }
+        }
+    }
+    
+    if(append) outputStr += line + "\n";*/
+    // }
+    
+    return analyzedFile;
 }

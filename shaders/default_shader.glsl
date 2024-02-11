@@ -33,7 +33,7 @@ SGSubPass(GeometryPass)
 
         // SGUSamplerCube skyboxSamplers[1] = SGGetTextures("GeniusTexture");
         // SGUSamplerCube skyboxSamplers[1] = SGGetTextures("standard_skybox0");
-        SGUSamplerCube skyboxSamplers[1] = SGGetTexturesFromMaterial("SGTT_SKYBOX");
+        SGSamplerCube skyboxSamplers[1] = SGGetTexturesFromMaterial("SGTT_SKYBOX");
 
         in vec3 vs_UVAttribute;
 
