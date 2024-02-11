@@ -364,12 +364,6 @@ SGCore::SGSLETranslator::sgslePreprocessor(const std::string& path, const std::s
 std::shared_ptr<SGCore::ShaderAnalyzedFile>
 SGCore::SGSLETranslator::sgsleMainProcessor(const std::shared_ptr<ShaderAnalyzedFile>& analyzedFile)
 {
-    /*std::stringstream codeStream(code);
-    
-    std::string line;
-    
-    std::string outputStr;*/
-    
     for(auto& subPass : analyzedFile->m_subPasses)
     {
         for(auto& subShaderIter : subPass.second.m_subShaders)
@@ -391,6 +385,22 @@ SGCore::SGSLETranslator::sgsleMainProcessor(const std::shared_ptr<ShaderAnalyzed
                 
                 std::vector<std::string> assignExprSplitted;
                 SGUtils::Utils::splitString(line, '=', assignExprSplitted);
+                
+                // members calls processing
+                std::smatch variableFuncCallRegexMatch;
+                if(std::regex_search(line, variableFuncCallRegexMatch, m_sgslVariableFuncCallRegex))
+                {
+                    std::string variableName = variableFuncCallRegexMatch[1];
+                    std::string variableFunction = variableFuncCallRegexMatch[2];
+                    
+                    std::string fullMatch = variableName + "." + variableFunction;
+                    
+                    // todo:
+                    if(variableFunction == "length()")
+                    {
+                        line = SGUtils::Utils::replaceAll(line, fullMatch, variableName + "_CURRENT_COUNT");
+                    }
+                }
                 
                 if(splittedBySpaceLine.size() >= 2)
                 {
@@ -463,14 +473,9 @@ SGCore::SGSLETranslator::sgsleMainProcessor(const std::shared_ptr<ShaderAnalyzed
                                 // todo: print error
                                 continue;
                             }
+                            
                             variable.m_lValueArraySize = variableArraySize.empty() ? 0 : std::atoi(variableArraySize.c_str());
                         }
-                        /*else
-                        {
-                            variable.m_lValueVarName = splittedBySpaceLine[1];
-                            variable.m_isLValueArray = false;
-                            variable.m_lValueArraySize = 0;
-                        }*/
                         
                         subShader.m_variables.push_back(variable);
                         
@@ -538,13 +543,16 @@ SGCore::SGSLETranslator::sgsleMainProcessor(const std::shared_ptr<ShaderAnalyzed
                             assignExpression.m_rvalueFunctionName = sgFuncName;
                             assignExpression.m_rvalueFunctionArgs = sgFuncArgs;
                             
+                            std::cout << "cnt : " << variableAssignRegexMatch.size() << std::endl;
+                            
                             size_t startIdx = std::atoi(variableAssignRegexMatch[2].str().c_str());
-                            if(variableAssignRegexMatch.size() == 4)
+                            if(variableAssignRegexMatch.size() == 4 && !variableAssignRegexMatch[3].str().empty())
                             {
                                 size_t endIdx = std::atoi(variableAssignRegexMatch[3].str().c_str());
                                 
                                 if(endIdx < startIdx)
                                 {
+                                    std::cout << "err" << std::endl;
                                     // todo: print error
                                     continue;
                                 }
@@ -578,114 +586,6 @@ SGCore::SGSLETranslator::sgsleMainProcessor(const std::shared_ptr<ShaderAnalyzed
             }
         }
     }
-    
-    /*while(std::getline(codeStream, line))
-    {
-        bool append = true;*/
-    
-    /*if(line.starts_with("[[sgsl_struct_decl]]"))
-    {
-        std::vector<std::string> splittedStr;
-        
-        SGUtils::Utils::splitString(line, ' ', splittedStr);
-        
-        SGSLEType sgsleStruct;
-        
-        sgsleStruct.m_name = SGUtils::Utils::replaceFirst(splittedStr[2], ";", "");
-        
-        for(size_t i = 4; i < splittedStr.size(); i += 2)
-        {
-            sgsleStruct.m_bases.push_back(SGUtils::Utils::replaceFirst(splittedStr[i], ";", ""));
-        }
-        
-        SGSLEInfo::getStructs().push_back(sgsleStruct);
-        
-        std::cout << sgsleStruct.toString() << std::endl;
-        
-        continue;
-    }
-    
-    if(line.starts_with("[[sgsl_func_decl]]"))
-    {
-        std::vector<std::string> splittedStr;
-        
-        SGUtils::Utils::splitString(line, ' ', splittedStr);
-        
-        SGSLEFunctionDecl sgsleFunction;
-        
-        std::string declStr = SGUtils::Utils::toString(splittedStr.begin() + 2, splittedStr.end());
-        
-        sgsleFunction.m_returnTypeDecl = SGSLEArgumentDecl { SGUtils::Utils::replaceFirst(splittedStr[1], "...", ""), splittedStr[1].ends_with("...") };
-        
-        static std::smatch assignExprRSideMatch;
-        
-        if(std::regex_search(line, assignExprRSideMatch, s_rSideOfAssignExprRegex))
-        {
-        
-        }
-        
-        SGSLEInfo::getFunctions().push_back(sgsleFunction);
-        
-        std::cout << sgsleFunction.toString() << std::endl;
-        
-        continue;
-    }*/
-    
-    
-    
-    /*std::vector<std::string> declarationExprSplit;
-    SGUtils::Utils::splitString(line,' ', declarationExprSplit);
-    if(declarationExprSplit.size() >= 2)
-    {
-        std::string type = declarationExprSplit[0];
-        std::string varName = declarationExprSplit[1];
-        
-        std::string typeGLSLReplacement = SGSLEInfo::getType(type).m_glslReplacement;
-        if(!typeGLSLReplacement.empty())
-        {
-            std::string glslReplacement = "#define __" + varName + "_COUNT__";
-        }
-    }*/
-    
-    /*std::vector<std::string> assignExprSplit;
-    SGUtils::Utils::splitString(line, '=', assignExprSplit);
-    
-    if(assignExprSplit.size() == 2)
-    {
-        std::vector<std::string> lSideSplitted;
-        std::vector<std::string> rSideSplitted;
-        
-        // splitting left side of assign expr by space char
-        SGUtils::Utils::splitString(assignExprSplit[0], ' ', lSideSplitted);
-        
-        std::string varName;
-        
-        if(lSideSplitted.size() == 2)
-        {
-            varName = lSideSplitted[1];
-        }
-        else if(lSideSplitted.size() == 1)
-        {
-            varName = lSideSplitted[0];
-        }
-        
-        static std::smatch assignExprRSideMatch;
-        
-        if(std::regex_search(line, assignExprRSideMatch, s_rSideOfAssignExprRegex))
-        {
-            std::string funcName = assignExprRSideMatch[1];
-            
-            std::cout << "func : " << funcName << std::endl;
-            
-            if(funcName == "SGGetTexturesFromMaterial")
-            {
-            
-            }
-        }
-    }
-    
-    if(append) outputStr += line + "\n";*/
-    // }
     
     return analyzedFile;
 }

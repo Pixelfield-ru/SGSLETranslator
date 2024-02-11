@@ -34,6 +34,7 @@ namespace SGCore
         static inline const std::regex m_sgslFuncWithArgsCallRegex = std::regex(R"(\s*(\w+)\s*\(([^)]*)\))");
         static inline const std::regex m_funcArgsDividerRegex = std::regex(R"([a-zA-Z0-9_.-]+)");
         static inline const std::regex m_arrayVariableDeclRegex = std::regex(R"((\w+)\[\s*(\d*)\s*\])");
+        static inline const std::regex m_sgslVariableFuncCallRegex = std::regex(R"(\b([a-zA-Z_]\w*)\s*\.\s*([a-zA-Z_]\w*\(\)))");
         // regex for assigns like samplers[0..5] = ...
         static inline const std::regex m_lSideOfAssignExprRegex0 = std::regex(R"((\w+)\[\s*(\d+)\s*(?:\.\.\s*(\d+)\s*)?\])");
         static inline const std::regex m_rSideSGFuncCallRegex = std::regex(R"(\s*(\w+)\s*\(([^)]*)\);)");
