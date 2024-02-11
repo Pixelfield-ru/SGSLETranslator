@@ -7,7 +7,7 @@
 #include "SGSLETranslator.h"
 #include "Utils.h"
 #include "FileUtils.h"
-#include "SGSLEInfo.h"
+#include "SGSLEUtils.h"
 
 std::shared_ptr<SGCore::ShaderAnalyzedFile>
 SGCore::SGSLETranslator::processCode(const std::string& path, const std::string& code,
@@ -25,7 +25,7 @@ SGCore::SGSLETranslator::processCode(const std::string& path, const std::string&
     std::shared_ptr<ShaderAnalyzedFile> preProcessedCode = sgslePreprocessor(path, correctedCode);
     std::shared_ptr<ShaderAnalyzedFile> analyzedFile = sgsleMainProcessor(preProcessedCode);
     
-    if(translator.m_config.m_useOutputDebug)
+    if(translator.m_config.m_useOutputDebug && isRootShader)
     {
         SGUtils::FileUtils::writeToFile(translator.m_config.m_outputDebugDirectoryPath + "/" + replacedPath + ".txt",
                                         analyzedFile->getAllCode(), false, true);
@@ -175,12 +175,19 @@ SGCore::SGSLETranslator::sgslePreProcessor(const std::string& path, const std::s
     
     std::shared_ptr<ShaderAnalyzedFile> analyzedFile = std::make_shared<ShaderAnalyzedFile>();
     
+    size_t lineIdx = 0;
+    
     while(std::getline(codeStream, line))
     {
         std::vector<std::string> words;
         SGUtils::Utils::splitString(line, ' ', words);
         
         bool append = true;
+        
+        if(lineIdx == 0)
+        {
+            line = "// code from shader by path: '" + path + "'\n" + line;
+        }
         
         if(words.size() >= 2 && words[0] == "#sg_pragma" && words[1] == "once")
         {
@@ -335,10 +342,13 @@ SGCore::SGSLETranslator::sgslePreProcessor(const std::string& path, const std::s
                         subPass->m_globalCode += line + "\n";
                     }
                 }
-            } else
+            }
+            else
             {
                 analyzedFile->m_globalCode += line + "\n";
             }
+            
+            ++lineIdx;
         }
     }
     
@@ -378,6 +388,9 @@ SGCore::SGSLETranslator::sgsleMainProcessor(const std::shared_ptr<ShaderAnalyzed
             {
                 std::vector<std::string> splittedBySpaceLine;
                 SGUtils::Utils::splitString(line, ' ', splittedBySpaceLine);
+                
+                std::vector<std::string> assignExprSplitted;
+                SGUtils::Utils::splitString(line, '=', assignExprSplitted);
                 
                 if(splittedBySpaceLine.size() >= 2)
                 {
@@ -422,6 +435,140 @@ SGCore::SGSLETranslator::sgsleMainProcessor(const std::shared_ptr<ShaderAnalyzed
                         }
                         
                         subShader.m_structs.push_back(sgsleStruct);
+                    }
+                    
+                    // processing declare
+                    // todo:
+                    if(splittedBySpaceLine[0] == "SGSampler2D" || splittedBySpaceLine[0] == "SGSamplerCube")
+                    {
+                        std::smatch variableDeclRegexMatch;
+                        
+                        std::string variableType = splittedBySpaceLine[0];
+                        
+                        SGSLEVariable variable;
+                        
+                        variable.m_lValueVarType = splittedBySpaceLine[0];
+                        
+                        // variables can be only array
+                        if(std::regex_search(line, variableDeclRegexMatch, m_arrayVariableDeclRegex))
+                        {
+                            std::string variableName = variableDeclRegexMatch[1];
+                            std::string variableArraySize = variableDeclRegexMatch[2];
+                            
+                            variable.m_lValueVarName = variableName;
+                            variable.m_isLValueArray = true;
+                            
+                            if(variableArraySize.empty())
+                            {
+                                // todo: print error
+                                continue;
+                            }
+                            variable.m_lValueArraySize = variableArraySize.empty() ? 0 : std::atoi(variableArraySize.c_str());
+                        }
+                        /*else
+                        {
+                            variable.m_lValueVarName = splittedBySpaceLine[1];
+                            variable.m_isLValueArray = false;
+                            variable.m_lValueArraySize = 0;
+                        }*/
+                        
+                        subShader.m_variables.push_back(variable);
+                        
+                        std::cout << "varname : " << variable.m_lValueVarName << std::endl;
+                        
+                        std::string defineName = "__" + variable.m_lValueVarName + "_MAX_COUNT__";
+                        
+                        line = "";
+                        line += "#define " + defineName + " " + std::to_string(variable.m_lValueArraySize) + "\n";
+                        line += "uniform " + SGSLEUtils::sgsleTypeToGLSL(variableType) + " " + variable.m_lValueVarName + "[" + defineName + "];\n";
+                        line += "uniform int " + variable.m_lValueVarName + "_CURRENT_COUNT;\n";
+                        // continue;
+                    }
+                }
+                
+                // processing assign
+                if(assignExprSplitted.size() >= 2)
+                {
+                    std::string& lSide = assignExprSplitted[0];
+                    std::string& rSide = assignExprSplitted[1];
+                    
+                    bool isSGFuncCall = false;
+                    
+                    std::string sgFuncName;
+                    std::vector<std::string> sgFuncArgs;
+                    
+                    std::smatch sgFuncCallRegexMatch;
+                    if(std::regex_search(rSide, sgFuncCallRegexMatch, m_rSideSGFuncCallRegex))
+                    {
+                        sgFuncName = sgFuncCallRegexMatch[1];
+                        if(sgFuncName == "SGGetTextures" || sgFuncName == "SGGetTexturesFromMaterial")
+                        {
+                            isSGFuncCall = true;
+                            std::string concatenatedArgs = sgFuncCallRegexMatch[2];
+                            
+                            std::smatch sgFuncArgsDividerRegexMatch;
+                            if(std::regex_search(concatenatedArgs, sgFuncArgsDividerRegexMatch, m_funcArgsDividerRegex))
+                            {
+                                for(const auto& arg : sgFuncArgsDividerRegexMatch)
+                                {
+                                    sgFuncArgs.push_back(arg);
+                                    std::cout << "arg: " << arg << std::endl;
+                                }
+                            }
+                        }
+                    }
+                    
+                    if(isSGFuncCall)
+                    {
+                        std::smatch variableAssignRegexMatch;
+                        if(std::regex_search(lSide, variableAssignRegexMatch, m_lSideOfAssignExprRegex0))
+                        {
+                            std::string variableName = variableAssignRegexMatch[1];
+                            
+                            SGSLEVariable* subShaderVar = subShader.tryGetVariable(variableName);
+                            
+                            if(!subShaderVar)
+                            {
+                                // todo: print error that is variable is not declared
+                                continue;
+                            }
+                            
+                            SGSLEAssignExpression assignExpression;
+                            
+                            assignExpression.m_rvalueFunctionName = sgFuncName;
+                            assignExpression.m_rvalueFunctionArgs = sgFuncArgs;
+                            
+                            size_t startIdx = std::atoi(variableAssignRegexMatch[2].str().c_str());
+                            if(variableAssignRegexMatch.size() == 4)
+                            {
+                                size_t endIdx = std::atoi(variableAssignRegexMatch[3].str().c_str());
+                                
+                                if(endIdx < startIdx)
+                                {
+                                    // todo: print error
+                                    continue;
+                                }
+                                
+                                if(endIdx > subShaderVar->m_lValueArraySize)
+                                {
+                                    // todo: print error
+                                    continue;
+                                }
+                                
+                                for(size_t i = startIdx; i <= endIdx; ++i)
+                                {
+                                    assignExpression.m_arrayIndices.push_back(i);
+                                }
+                            }
+                            else
+                            {
+                                assignExpression.m_arrayIndices.push_back(startIdx);
+                            }
+                            
+                            subShaderVar->m_assignExpressions.push_back(assignExpression);
+                        }
+                        
+                        continue;
                     }
                 }
                 

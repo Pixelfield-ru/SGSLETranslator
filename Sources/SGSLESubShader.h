@@ -28,6 +28,12 @@ namespace SGCore
             auto it = std::find(m_structs.begin(), m_structs.end(), SGSLEStruct { structName });
             return it == m_structs.end() ? nullptr : &*it;
         }
+        
+        SGSLEVariable* tryGetVariable(const std::string& varName) noexcept
+        {
+            auto it = std::find(m_variables.begin(), m_variables.end(), SGSLEVariable { varName });
+            return it == m_variables.end() ? nullptr : &*it;
+        }
     };
 }
 

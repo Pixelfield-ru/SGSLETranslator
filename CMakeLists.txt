@@ -6,4 +6,5 @@ file(GLOB_RECURSE SGSLE_TRANSLATOR_SOURCES Sources/*.cpp Sources/*.h)
 set(CMAKE_CXX_STANDARD 23)
 
 add_executable(SGSLETranslator ${SGSLE_TRANSLATOR_SOURCES}
-        Sources/SGSLEStruct.h)
+        Sources/SGSLEStruct.h
+        Sources/SGSLEAssignExpression.h)
